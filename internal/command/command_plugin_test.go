@@ -13,6 +13,7 @@ import (
 	"time"
 
 	mpi "github.com/nginx/agent/v3/api/grpc/mpi/v1"
+	"github.com/nginx/agent/v3/api/grpc/mpi/v1/v1fakes"
 	"github.com/nginx/agent/v3/internal/bus"
 	"github.com/nginx/agent/v3/internal/command/commandfakes"
 	"github.com/nginx/agent/v3/internal/grpc/grpcfakes"
@@ -48,16 +49,21 @@ func TestCommandPlugin_Subscriptions(t *testing.T) {
 func TestCommandPlugin_Init(t *testing.T) {
 	ctx := context.Background()
 	messagePipe := bus.NewFakeMessagePipe()
+	
+	fakeCommandServiceClient := &v1fakes.FakeCommandServiceClient{}
+
+	fakeGrpc := &grpcfakes.FakeGrpcConnectionInterface{}
+	fakeGrpc.CommandServiceClientReturns(fakeCommandServiceClient)
+
 	fakeCommandService := &commandfakes.FakeCommandService{}
 
-	commandPlugin := NewCommandPlugin(types.AgentConfig(), &grpcfakes.FakeGrpcConnectionInterface{})
+	commandPlugin := NewCommandPlugin(types.AgentConfig(), fakeGrpc)
+	commandPlugin.commandService = fakeCommandService
 	err := commandPlugin.Init(ctx, messagePipe)
 	require.NoError(t, err)
 
 	require.NotNil(t, commandPlugin.messagePipe)
 	require.NotNil(t, commandPlugin.commandService)
-
-	commandPlugin.commandService = fakeCommandService
 
 	closeError := commandPlugin.Close(ctx)
 	require.NoError(t, closeError)

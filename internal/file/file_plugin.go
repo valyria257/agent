@@ -40,12 +40,13 @@ func NewFilePlugin(agentConfig *config.Config, grpcConnection grpc.GrpcConnectio
 }
 
 func (fp *FilePlugin) Init(ctx context.Context, messagePipe bus.MessagePipeInterface) error {
+	var err error
 	slog.DebugContext(ctx, "Starting file plugin")
 
 	fp.messagePipe = messagePipe
-	fp.fileManagerService = NewFileManagerService(fp.conn.FileServiceClient(), fp.config)
+	fp.fileManagerService, err = NewFileManagerService(fp.conn.FileServiceClient(), fp.config)
 
-	return nil
+	return err
 }
 
 func (fp *FilePlugin) Close(ctx context.Context) error {

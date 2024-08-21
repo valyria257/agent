@@ -153,8 +153,9 @@ func TestFilePlugin_Process_ConfigApplyRequestTopic(t *testing.T) {
 			fakeFileManagerService.ConfigApplyReturns(test.configApplyStatus, test.configApplyReturnsErr)
 			messagePipe := bus.NewFakeMessagePipe()
 			filePlugin := NewFilePlugin(agentConfig, fakeGrpcConnection)
-			err := filePlugin.Init(ctx, messagePipe)
 			filePlugin.fileManagerService = fakeFileManagerService
+
+			err := filePlugin.Init(ctx, messagePipe)
 			require.NoError(t, err)
 
 			filePlugin.Process(ctx, &bus.Message{Topic: bus.ConfigApplyRequestTopic, Data: test.message})

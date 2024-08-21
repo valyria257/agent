@@ -47,10 +47,14 @@ func NewCommandPlugin(agentConfig *config.Config, grpcConnection grpc.GrpcConnec
 }
 
 func (cp *CommandPlugin) Init(ctx context.Context, messagePipe bus.MessagePipeInterface) error {
+	var err error
 	slog.DebugContext(ctx, "Starting command plugin")
 
 	cp.messagePipe = messagePipe
-	cp.commandService = NewCommandService(ctx, cp.conn.CommandServiceClient(), cp.config, cp.subscribeChannel)
+	cp.commandService, err = NewCommandService(ctx, cp.conn.CommandServiceClient(), cp.config, cp.subscribeChannel)
+	if err != nil {
+		return err
+	}
 
 	go cp.monitorSubscribeChannel(ctx)
 

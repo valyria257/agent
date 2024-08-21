@@ -31,10 +31,12 @@ func TestFileManagerService_UpdateOverview(t *testing.T) {
 	fileMeta := protos.FileMeta("/etc/nginx/nginx.conf", "")
 
 	fakeFileServiceClient := &v1fakes.FakeFileServiceClient{}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	require.NoError(t, err)
+
 	fileManagerService.SetIsConnected(true)
 
-	err := fileManagerService.UpdateOverview(ctx, "123", []*mpi.File{
+	err = fileManagerService.UpdateOverview(ctx, "123", []*mpi.File{
 		{
 			FileMeta: fileMeta,
 		},
@@ -54,11 +56,12 @@ func TestFileManagerService_UpdateFile(t *testing.T) {
 	fileMeta := protos.FileMeta(testFile.Name(), "")
 
 	fakeFileServiceClient := &v1fakes.FakeFileServiceClient{}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	require.NoError(t, err)
+
 	fileManagerService.SetIsConnected(true)
 
-	err := fileManagerService.UpdateFile(ctx, "123", &mpi.File{FileMeta: fileMeta})
-
+	err = fileManagerService.UpdateFile(ctx, "123", &mpi.File{FileMeta: fileMeta})
 	require.NoError(t, err)
 	assert.Equal(t, 1, fakeFileServiceClient.UpdateFileCallCount())
 }
@@ -86,7 +89,8 @@ func TestFileManagerService_ConfigApply_Add(t *testing.T) {
 	}, nil)
 	agentConfig := types.AgentConfig()
 	agentConfig.AllowedDirectories = []string{tempDir}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, agentConfig)
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, agentConfig)
+	require.NoError(t, err)
 
 	request := protos.CreateConfigApplyRequest(overview)
 	writeStatus, err := fileManagerService.ConfigApply(ctx, request)
@@ -124,7 +128,8 @@ func TestFileManagerService_ConfigApply_Update(t *testing.T) {
 	}, nil)
 	agentConfig := types.AgentConfig()
 	agentConfig.AllowedDirectories = []string{tempDir}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, agentConfig)
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, agentConfig)
+	require.NoError(t, err)
 
 	request := protos.CreateConfigApplyRequest(overview)
 
@@ -153,7 +158,8 @@ func TestFileManagerService_ConfigApply_Delete(t *testing.T) {
 	fakeFileServiceClient := &v1fakes.FakeFileServiceClient{}
 	agentConfig := types.AgentConfig()
 	agentConfig.AllowedDirectories = []string{tempDir}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, agentConfig)
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, agentConfig)
+	require.NoError(t, err)
 
 	request := protos.CreateConfigApplyRequest(overview)
 
@@ -167,7 +173,8 @@ func TestFileManagerService_ConfigApply_Delete(t *testing.T) {
 
 func TestFileManagerService_checkAllowedDirectory(t *testing.T) {
 	fakeFileServiceClient := &v1fakes.FakeFileServiceClient{}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	require.NoError(t, err)
 
 	allowedFiles := []*mpi.File{
 		{
@@ -195,7 +202,7 @@ func TestFileManagerService_checkAllowedDirectory(t *testing.T) {
 		},
 	}
 
-	err := fileManagerService.checkAllowedDirectory(allowedFiles)
+	err = fileManagerService.checkAllowedDirectory(allowedFiles)
 	require.NoError(t, err)
 	err = fileManagerService.checkAllowedDirectory(notAllowed)
 	require.Error(t, err)
@@ -203,7 +210,8 @@ func TestFileManagerService_checkAllowedDirectory(t *testing.T) {
 
 func TestFileManagerService_ClearCache(t *testing.T) {
 	fakeFileServiceClient := &v1fakes.FakeFileServiceClient{}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	require.NoError(t, err)
 
 	filesCache := map[string]*mpi.File{
 		"file/path/test.conf": {
@@ -305,11 +313,13 @@ func TestFileManagerService_Rollback(t *testing.T) {
 
 	instanceID := protos.GetNginxOssInstance([]string{}).GetInstanceMeta().GetInstanceId()
 	fakeFileServiceClient := &v1fakes.FakeFileServiceClient{}
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	require.NoError(t, err)
+
 	fileManagerService.fileContentsCache = fileContentCache
 	fileManagerService.filesCache = filesCache
 
-	err := fileManagerService.Rollback(ctx, instanceID)
+	err = fileManagerService.Rollback(ctx, instanceID)
 	require.NoError(t, err)
 
 	assert.NoFileExists(t, addFile.Name())
@@ -399,7 +409,8 @@ func TestFileManagerService_fileActions(t *testing.T) {
 			Contents: newFileContent,
 		},
 	}, nil)
-	fileManagerService := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	fileManagerService, err := NewFileManagerService(fakeFileServiceClient, types.AgentConfig())
+	require.NoError(t, err)
 
 	fileManagerService.filesCache = filesCache
 

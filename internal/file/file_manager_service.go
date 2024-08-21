@@ -58,9 +58,15 @@ type FileManagerService struct {
 	fileContentsCache map[string][]byte    // key is file path
 }
 
-func NewFileManagerService(fileServiceClient mpi.FileServiceClient, agentConfig *config.Config) *FileManagerService {
+func NewFileManagerService(fileServiceClient mpi.FileServiceClient,
+	agentConfig *config.Config,
+) (*FileManagerService, error) {
 	isConnected := &atomic.Bool{}
 	isConnected.Store(false)
+
+	if fileServiceClient == nil {
+		return nil, errors.New("file service client is not initialized")
+	}
 
 	return &FileManagerService{
 		fileServiceClient: fileServiceClient,
@@ -69,7 +75,7 @@ func NewFileManagerService(fileServiceClient mpi.FileServiceClient, agentConfig 
 		filesCache:        make(map[string]*mpi.File),
 		fileContentsCache: make(map[string][]byte),
 		isConnected:       isConnected,
-	}
+	}, nil
 }
 
 func (fms *FileManagerService) UpdateOverview(
@@ -100,9 +106,6 @@ func (fms *FileManagerService) UpdateOverview(
 
 	sendUpdateOverview := func() (*mpi.UpdateOverviewResponse, error) {
 		slog.DebugContext(ctx, "Sending update overview request", "request", request)
-		if fms.fileServiceClient == nil {
-			return nil, errors.New("file service client is not initialized")
-		}
 
 		if !fms.isConnected.Load() {
 			return nil, errors.New("CreateConnection rpc has not being called yet")
@@ -164,9 +167,6 @@ func (fms *FileManagerService) UpdateFile(
 
 	sendUpdateFile := func() (*mpi.UpdateFileResponse, error) {
 		slog.DebugContext(ctx, "Sending update file request", "request", request)
-		if fms.fileServiceClient == nil {
-			return nil, errors.New("file service client is not initialized")
-		}
 
 		if !fms.isConnected.Load() {
 			return nil, errors.New("CreateConnection rpc has not being called yet")

@@ -45,12 +45,13 @@ func TestCommandService_NewCommandService(t *testing.T) {
 	ctx := context.Background()
 	commandServiceClient := &v1fakes.FakeCommandServiceClient{}
 
-	commandService := NewCommandService(
+	commandService, err := NewCommandService(
 		ctx,
 		commandServiceClient,
 		types.AgentConfig(),
 		make(chan *mpi.ManagementPlaneRequest),
 	)
+	require.NoError(t, err)
 
 	defer commandService.CancelSubscription(ctx)
 
@@ -70,16 +71,17 @@ func TestCommandService_UpdateDataPlaneStatus(t *testing.T) {
 	commandServiceClient := &v1fakes.FakeCommandServiceClient{}
 	commandServiceClient.SubscribeReturns(fakeSubscribeClient, nil)
 
-	commandService := NewCommandService(
+	commandService, err := NewCommandService(
 		ctx,
 		commandServiceClient,
 		types.AgentConfig(),
 		make(chan *mpi.ManagementPlaneRequest),
 	)
+	require.NoError(t, err)
 	defer commandService.CancelSubscription(ctx)
 
 	// Fail first time since there are no other instances besides the agent
-	_, err := commandService.UpdateDataPlaneStatus(ctx, protos.GetHostResource())
+	_, err = commandService.UpdateDataPlaneStatus(ctx, protos.GetHostResource())
 	require.Error(t, err)
 
 	resource := protos.GetHostResource()
@@ -108,17 +110,18 @@ func TestCommandService_UpdateDataPlaneStatusSubscribeError(t *testing.T) {
 	logBuf := &bytes.Buffer{}
 	stub.StubLoggerWith(logBuf)
 
-	commandService := NewCommandService(
+	commandService, err := NewCommandService(
 		ctx,
 		commandServiceClient,
 		types.AgentConfig(),
 		make(chan *mpi.ManagementPlaneRequest),
 	)
+	require.NoError(t, err)
 	defer commandService.CancelSubscription(ctx)
 
 	commandService.isConnected.Store(true)
 
-	_, err := commandService.UpdateDataPlaneStatus(ctx, protos.GetHostResource())
+	_, err = commandService.UpdateDataPlaneStatus(ctx, protos.GetHostResource())
 	require.Error(t, err)
 
 	if s := logBuf.String(); !strings.Contains(s, "Failed to send update data plane status") {
@@ -130,15 +133,16 @@ func TestCommandService_UpdateDataPlaneHealth(t *testing.T) {
 	ctx := context.Background()
 	commandServiceClient := &v1fakes.FakeCommandServiceClient{}
 
-	commandService := NewCommandService(
+	commandService, err := NewCommandService(
 		ctx,
 		commandServiceClient,
 		types.AgentConfig(),
 		make(chan *mpi.ManagementPlaneRequest),
 	)
+	require.NoError(t, err)
 
 	// connection not created yet
-	err := commandService.UpdateDataPlaneHealth(ctx, protos.GetInstanceHealths())
+	err = commandService.UpdateDataPlaneHealth(ctx, protos.GetInstanceHealths())
 
 	require.Error(t, err)
 	assert.Equal(t, 0, commandServiceClient.UpdateDataPlaneHealthCallCount())
@@ -161,18 +165,18 @@ func TestCommandService_SendDataPlaneResponse(t *testing.T) {
 	commandServiceClient := &v1fakes.FakeCommandServiceClient{}
 	subscribeClient := &FakeSubscribeClient{}
 
-	commandService := NewCommandService(
+	commandService, err := NewCommandService(
 		ctx,
 		commandServiceClient,
 		types.AgentConfig(),
 		make(chan *mpi.ManagementPlaneRequest),
 	)
+	require.NoError(t, err)
 
 	commandService.subscribeClientMutex.Lock()
 	commandService.subscribeClient = subscribeClient
 	commandService.subscribeClientMutex.Unlock()
 
-	err := commandService.SendDataPlaneResponse(ctx, protos.OKDataPlaneResponse())
-
+	err = commandService.SendDataPlaneResponse(ctx, protos.OKDataPlaneResponse())
 	require.NoError(t, err)
 }

@@ -49,7 +49,11 @@ func NewCommandService(
 	commandServiceClient mpi.CommandServiceClient,
 	agentConfig *config.Config,
 	subscribeChannel chan *mpi.ManagementPlaneRequest,
-) *CommandService {
+) (*CommandService, error) {
+	if commandServiceClient == nil {
+		return nil, errors.New("command service client is not initialized")
+	}
+
 	isConnected := &atomic.Bool{}
 	isConnected.Store(false)
 
@@ -68,7 +72,7 @@ func NewCommandService(
 
 	go commandService.subscribe(subscribeCtx)
 
-	return commandService
+	return commandService, nil
 }
 
 func (cs *CommandService) UpdateDataPlaneStatus(
@@ -101,9 +105,6 @@ func (cs *CommandService) UpdateDataPlaneStatus(
 
 	sendDataPlaneStatus := func() (*mpi.UpdateDataPlaneStatusResponse, error) {
 		slog.DebugContext(ctx, "Sending data plane status update request", "request", request)
-		if cs.commandServiceClient == nil {
-			return nil, errors.New("command service client is not initialized")
-		}
 
 		response, updateError := cs.commandServiceClient.UpdateDataPlaneStatus(ctx, request)
 
