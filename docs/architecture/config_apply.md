@@ -26,18 +26,22 @@ flowchart TB
     20 --> 21{"Monitor Logs Error or Errors found?"}
     21 -- Yes --> 17
     21 -- No --> 12
-    13 --> 22
+    13 --> 23["Rollback"]
+    23 --> 24["Send Data Plane Response <br> COMMAND_STATUS_FAILURE"]
+    24 --> 25["Clear Cache"]
+    25 --> 1
     22 --> 1
     12 --> 1
     style 4 fill:#BBDEFB,color:#000000
     style 12 fill:#BBDEFB,color:#000000
     style 13 fill:#BBDEFB,color:#000000
     style 17 fill:#BBDEFB,color:#000000
+    style 24 fill:#BBDEFB,color:#000000
     style 22 fill:#E1BEE7,color:#000000
 
 ```
 
-# Config Apply Sequence Diagram 
+# Config Apply Sequence Diagram
 ```mermaid
 sequenceDiagram
     participant Command Plugin as Command Plugin
@@ -73,8 +77,11 @@ sequenceDiagram
     else rollback required
         rect rgb(144, 143, 217)
             File Plugin -) Message Bus: DataPlaneResponseTopic Command_Status_ERROR
-            File Plugin ->> File Manager Service: Rollback(ctx, instanceID)
             Message Bus -) Command Plugin: DataPlaneResponseTopic Command_Status_ERROR
+            File Plugin ->> File Manager Service: Rollback(ctx, instanceID)
+            File Plugin -) Message Bus: DataPlaneResponseTopic Command_Status_FAILURE
+            Message Bus -) Command Plugin: DataPlaneResponseTopic Command_Status_FAILURE
+            File Plugin ->> File Plugin: ClearCache()
         end
     else no error
         rect rgb(66, 129, 164)
@@ -116,6 +123,5 @@ sequenceDiagram
         end
     end
 
-
-
 ```
+
