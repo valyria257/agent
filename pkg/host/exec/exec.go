@@ -2,14 +2,15 @@
 //
 // This source code is licensed under the Apache License, Version 2.0 license found in the
 // LICENSE file in the root directory of this source tree.
-
 package exec
 
 import (
 	"bytes"
 	"context"
+	"log"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 
 	"github.com/nginx/agent/v3/api/grpc/mpi/v1"
@@ -74,7 +75,43 @@ func (*Exec) Hostname() (string, error) {
 // HostID returns a unique ID for the host machine.
 // The context can be used to cancel the operation.
 func (*Exec) HostID(ctx context.Context) (string, error) {
-	return host.HostIDWithContext(ctx)
+	// Log which files exist before calling the function
+	sysProductUUID := "/sys/class/dmi/id/product_uuid"
+	machineID := "/etc/machine-id"
+	procSysKernelRandomBootID := "/proc/sys/kernel/random/boot_id"
+
+	log.Printf("HostID: Checking available sources...")
+	log.Printf("HostID: /sys/class/dmi/id/product_uuid exists: %v", fileExists(sysProductUUID))
+	log.Printf("HostID: /etc/machine-id exists: %v", fileExists(machineID))
+	log.Printf("HostID: /proc/sys/kernel/random/boot_id exists: %v", fileExists(procSysKernelRandomBootID))
+
+	hostID, err := host.HostIDWithContext(ctx)
+	if err != nil {
+		log.Printf("HostID: Failed to get host ID: %v", err)
+		return "", err
+	}
+
+	// Try to determine which source was used based on the format
+	if len(hostID) == 36 && strings.Count(hostID, "-") == 4 {
+		// Standard UUID format (from sysProductUUID or formatted machineID)
+		if fileExists(sysProductUUID) {
+			log.Printf("HostID: Likely used system product UUID")
+		} else {
+			log.Printf("HostID: Likely used machine ID (formatted as UUID)")
+		}
+	} else {
+		log.Printf("HostID: Likely used boot ID (format: %s)", hostID)
+	}
+
+	log.Printf("HostID: Retrieved host ID: %s", hostID)
+
+	return hostID, nil
+}
+
+// Helper function to check if file exists
+func fileExists(filename string) bool {
+	_, err := os.Stat(filename)
+	return !os.IsNotExist(err)
 }
 
 // ReleaseInfo returns operating system release information.
