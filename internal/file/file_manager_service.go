@@ -11,13 +11,18 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc32"
 	"log/slog"
 	"os"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 
+	secretmanager "cloud.google.com/go/secretmanager/apiv1"
+	"cloud.google.com/go/secretmanager/apiv1/secretmanagerpb"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/api/option"
 	"google.golang.org/grpc"
 
 	"github.com/nginx/agent/v3/internal/model"
@@ -696,11 +701,58 @@ func (fms *FileManagerService) deleteTempFiles(ctx context.Context) {
 func (fms *FileManagerService) fileUpdate(ctx context.Context, file *mpi.File, tempFilePath string) error {
 	expectedHash := fms.fileActions[file.GetFileMeta().GetName()].File.GetFileMeta().GetHash()
 
+	// testing, please remove
+	_, err := fms.fetchExternalDataSource(ctx, "gcp_secret://projects/900024435491/secrets/valyria-secret")
+	if err != nil {
+		slog.ErrorContext(ctx, "failed fetching external data source", "error", err)
+	}
+
+	if file.GetExternalDataSource() != nil {
+		expectedHash, err = fms.fetchExternalDataSource(ctx, file.GetExternalDataSource().GetLocation())
+		if err != nil {
+			return err
+		}
+	}
+
 	if file.GetFileMeta().GetSize() <= int64(fms.agentConfig.Client.Grpc.MaxFileSize) {
 		return fms.fileServiceOperator.File(ctx, file, tempFilePath, expectedHash)
 	}
 
 	return fms.fileServiceOperator.ChunkedFile(ctx, file, tempFilePath, expectedHash)
+}
+
+func (fms *FileManagerService) fetchExternalDataSource(ctx context.Context, location string) (string, error) {
+	if !strings.HasPrefix(location, "gcp_secret://") {
+		return "", fmt.Errorf("unknown location %s", location)
+	}
+	name := strings.TrimPrefix(location, "gcp_secret://")
+	client, err := secretmanager.NewClient(ctx, option.WithLogger(slog.Default()))
+	if err != nil {
+		return "", fmt.Errorf("failed to create google secretmanager client: %w", err)
+	}
+	defer client.Close()
+
+	req := &secretmanagerpb.AccessSecretVersionRequest{
+		Name: name,
+	}
+
+	result, err := client.AccessSecretVersion(ctx, req)
+	if err != nil {
+		return "", fmt.Errorf("failed to access google secret version: %w", err)
+	}
+
+	if result.GetPayload().GetDataCrc32C() != 0 {
+		crc32c := crc32.MakeTable(crc32.Castagnoli)
+		checksum := int64(crc32.Checksum(result.GetPayload().GetData(), crc32c))
+		if checksum != result.GetPayload().GetDataCrc32C() {
+			return "", fmt.Errorf("data corruption detected on google secret version %s", location)
+		}
+	}
+
+	secret := result.GetPayload().GetData()
+	slog.InfoContext(ctx, "got secret", "location", location, "secret", string(secret))
+
+	return files.GenerateHash(secret), nil
 }
 
 func (fms *FileManagerService) checkAllowedDirectory(checkFiles []*mpi.File) error {
